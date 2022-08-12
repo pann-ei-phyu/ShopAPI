@@ -7,8 +7,7 @@ const isAuth = require('../middleware/auth');
 const router = express.Router();
 
 //router.get('/add-product', adminController.getAddProduct);
-router.get('/products', 
-    isAuth, 
+router.get('/products',
     adminRoutes.getProducts
     );
 
@@ -22,12 +21,12 @@ router.get('/edit-product/:productId',
     adminRoutes.getEditProduct
     );
 
-router.patch('/edit-product', 
+router.put('/edit-product/:productId', 
     isAuth,
     adminRoutes.postEditProduct
     );
 
-router.delete('/delete-product', 
+router.delete('/delete-product/:productId', 
     isAuth,
     adminRoutes.postDeleteProduct
     );
