@@ -5,16 +5,6 @@ const User = require('../model/user');
 const path = require('path');
 const fs = require('fs');
 
-
-
-exports.getAddProduct = (req, res, next) => {
-  res.render('admin/edit-product', {
-    // pageTitle: 'Add Product',
-    // path: '/admin/add-product',
-    // editing: false
-  });
-};
-
 exports.postAddProduct= (req, res, next) => {
   const title = req.body.title;
   const price = req.body.price;
@@ -131,8 +121,9 @@ exports.postAddProduct= (req, res, next) => {
   
   exports.getProducts = (req, res, next) => {
     const currentPage = req.query.page || 1;
-    const perPage = 1000;
+    const perPage = 3;
     let totalItems;
+    
     Product.find()
       .countDocuments()
       .then(count => {
@@ -144,7 +135,7 @@ exports.postAddProduct= (req, res, next) => {
       })
       .then(products => {
         console.log(products);
-        res.status(201).json({ message: 'Show all products', products: products });
+        res.status(201).json({ message: 'Show all products', products: products , currentPage: parseInt(currentPage) , totalPage: Math.ceil(totalItems/perPage) });
         return products;
         
       })
