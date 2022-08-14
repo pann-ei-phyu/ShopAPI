@@ -5,7 +5,7 @@ const User = require('../model/user');
 const path = require('path');
 const fs = require('fs');
 
-exports.postAddProduct= (req, res, next) => {
+exports.postAddProduct= async (req, res, next) => {
   const title = req.body.title;
   const price = req.body.price;
   const description = req.body.description;
@@ -28,177 +28,128 @@ exports.postAddProduct= (req, res, next) => {
       imageUrl: imageUrl,
       creator: req.userId
     });
-  product
-  .save()
-  .then(result => {
-    return User.findById(req.userId);})
-    .then(user => {
-      creator= user;
-      user.products.push(product);
-      return user.save();
-    })
-    .then( result => {
+  try { 
+    await product.save();
+    const user = await User.findById(req.userId);
+    creator= user;
+    user.products.push(product);
+    await user.save();
     console.log('created product');
     res.status(201).json({ message: 'Product created!', productId: result._id,
     product: product,
     creator: {_id: creator._id, name: creator.name}
-  });
+    });
     
-  })
-  .catch(err => {
+  }
+  catch(err) {
     next(err) ;
-  })
-  };
+  }
+};
 
-  exports.getEditProduct = (req, res, next) => {
-    // const editMode = req.query.edit;
-    // console.log(editMode);
-    // if (!editMode) {
-    //   return res.redirect('/');
-    // }
-    const prodId = req.params.productId;
-    Product.findById(prodId)
-      .then(product => {
-        if (!product) {
-          const error = new Error('Could not find product.');
-          error.statusCode = 404;
-          throw error;
-          //return res.redirect('/');
-        }
-        console.log(product);
-        res.status(201).json({ message: 'This is edit product', product: product });
-      })
-      .catch(err => 
-        next(err));
+exports.getEditProduct = async (req, res, next) => {
+  const prodId = req.params.productId;
+  try {
+    const product = await Product.findById(prodId);
+    if (!product) {
+      const error = new Error('Could not find product.');
+      error.statusCode = 404;
+      throw error;
+      }
+    res.status(201).json({ message: 'This is edit product', product: product });
+  }
+  catch(err) {
+    next(err);
   };
+};
   
 
-  exports.postEditProduct = (req, res, next) => {
-    const prodId = req.params.productId;
-    //console.log(prodId);
-    const updatedTitle = req.body.title;
-    const updatedPrice = req.body.price;
-    let imageUrl = req.body.image;
-    if (req.file) {
-      imageUrl = req.file.path;
-    }
-    if (!imageUrl) {
-      const error = new Error('No file picked.');
-      error.statusCode = 422;
+exports.postEditProduct = async (req, res, next) => {
+  const prodId = req.params.productId;
+  const updatedTitle = req.body.title;
+  const updatedPrice = req.body.price;
+  let imageUrl = req.body.image;
+  if (req.file) {
+    imageUrl = req.file.path;
+  }
+  if (!imageUrl) {
+    const error = new Error('No file picked.');
+    error.statusCode = 422;
+    throw error;
+  }
+  const updatedDesc = req.body.description;
+  try {
+    const product = await Product.findById(prodId);
+    if (!product) {
+      const error = new Error('Could not find product.');
+      error.statusCode = 404;
+      throw error;
+    }    
+    if (product.creator.toString() !== req.userId) {
+      const error = new Error('Not authorized!');
+      error.statusCode = 403;
       throw error;
     }
-    const updatedDesc = req.body.description;
-    
-    Product.findById(prodId)
-      .then(product => {
-        if (!product) {
-          const error = new Error('Could not find product.');
-          error.statusCode = 404;
-          throw error;
-        }
-        if (product.creator.toString() !== req.userId) {
-          const error = new Error('Not authorized!');
-          error.statusCode = 403;
-          throw error;
-        }
-        if (imageUrl !== product.imageUrl) {
-          clearImage(product.imageUrl);
-        }
-        product.title = updatedTitle;
-        product.price = updatedPrice;
-        product.description = updatedDesc;
-        product.imageUrl = imageUrl;
-        return product.save();
-      })
-      .then(result => {
-        console.log('UPDATED PRODUCT!');
-        res.status(201).json({ message: 'Product updated', productId: result._id });
-      })
-      .catch(err => 
-        next(err)
-      );
+    if (imageUrl !== product.imageUrl) {
+      clearImage(product.imageUrl);
+    }
+    product.title = updatedTitle;
+    product.price = updatedPrice;
+    product.description = updatedDesc;
+    product.imageUrl = imageUrl;
+    await product.save();
+    console.log('UPDATED PRODUCT!');
+    res.status(201).json({ message: 'Product updated', productId: result._id });
+  }
+  catch(err) {
+    next(err);
   };
+};
   
-  exports.getProducts = (req, res, next) => {
-    const currentPage = req.query.page || 1;
-    const perPage = 3;
-    let totalItems;
-    
-    Product.find()
-      .countDocuments()
-      .then(count => {
-        totalItems = count;
-        console.log(totalItems);
-        return Product.find()
-          .skip((currentPage - 1) * perPage)
-          .limit(perPage);
-      })
-      .then(products => {
-        console.log(products);
-        res.status(201).json({ message: 'Show all products', products: products , currentPage: parseInt(currentPage) , totalPage: Math.ceil(totalItems/perPage) });
-        return products;
-        
-      })
-      .catch(err => {
+exports.getProducts = async (req, res, next) => {
+  const currentPage = req.query.page || 1;
+  const perPage = 3;
+  try {
+    const totalItems = await Product.find().countDocuments();
+    const products = await Product.find()
+      .skip((currentPage - 1) * perPage)
+      .limit(perPage);
+    res.status(201).json({ message: 'Show all products', products: products , currentPage: parseInt(currentPage) , totalPage: Math.ceil(totalItems/perPage) }); 
+    }
+    catch(err){
         if (!err.statusCode) {
           err.statusCode = 500;
         }
         next(err);
-      });
-    // Product.find()
-    //   .then(products => {
-    //     console.log(products);
-    //     res.status(201).json({ message: 'Show all products', products: products });
-    //     return products;
-        
-    //   })
-    //   .catch(err => {
-    //     next(err);
-    //   });
+    };
   };
-
-  
-    /*const prodId = '62e4f15b6feac670df19fd73';
-    const updatedTitle = 'shoseupdate';
-    const updatedPrice = 29;
-    const updatedDesc = 'this is shoes update';
-    const updatedImageUrl = 'https://static.onecms.io/wp-content/uploads/sites/23/2022/03/08/cole-haan-grandpro-rally-court-sneaker-optic-white-black-optic-white-tout.jpg';*/
     
-  
-  exports.postDeleteProduct = (req, res, next) => {
-    const prodId = req.params.productId;
-    console.log(prodId);
-    //const prodId = '62e4f15b6feac670df19fd73';
-    Product.findById(prodId)
-      .then(product => {
-        if(!product){
-          const error = new Error('Could not find product');
-          error.statusCode = 404;
-          throw error;
-        }
-        if (product.creator.toString() !== req.userId){
-          const error = new Error ('Not Authorized');
-          error.statusCode = 403;
-          throw error;
-        }
-        clearImage(product.imageUrl);
-        return Product.findByIdAndRemove(prodId);
-      })
-      .then(result => {
-        return User.findById(req.userId);
-      })
-      .then(user => {
-        user.products.pull(prodId);
-        return user.save();
-      })
-      .then(() => {
-        console.log('DESTROYED PRODUCT');
-        res.status(201).json({ message: 'Deleted product'});
-        
-      })
-      .catch(err => 
-        next(err));
+exports.postDeleteProduct = async (req, res, next) => {
+  const prodId = req.params.productId;
+  console.log(prodId);
+  try {
+    const product = await Product.findById(prodId);
+    if(!product){
+      const error = new Error('Could not find product');
+      error.statusCode = 404;
+      throw error;
+    }
+    if (product.creator.toString() !== req.userId){
+      const error = new Error ('Not Authorized');
+      error.statusCode = 403;
+      throw error;
+    }
+    clearImage(product.imageUrl);
+    await Product.findByIdAndRemove(prodId);
+    const user = await User.findById(req.userId);
+    user.products.pull(prodId);
+    await user.save();
+    console.log('DESTROYED PRODUCT');
+    res.status(201).json({ message: 'Deleted product'});
+  }
+  catch(err) {
+    next(err);
   };
+};
 
 
   const clearImage = filePath => {
